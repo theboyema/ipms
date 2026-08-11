@@ -2,15 +2,35 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../components/auth/auth-context';
-import { getSubmissions, getAuditLog, fmtDateTime } from '../../lib/store';
+import { getSubmissions, getAuditLog, getAllMeetings, STAGES, fmtDateTime, type Submission, type Meeting } from '../../lib/store';
 
-const stats = (students: any[], supervisors: any[], assigned: number, unassigned: number, active: number, pending: number, pendingAdmins: number) => [
+function computeRiskLevel(studentId: string, subs: Submission[], supervisorId?: string): 'HEALTHY' | 'AT_RISK' | 'CRITICAL' {
+  if (!supervisorId) return 'CRITICAL';
+  const mySubs = subs.filter(s => s.studentId === studentId);
+  if (mySubs.length === 0) return 'AT_RISK';
+  const latest = [...mySubs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  const daysSince = (Date.now() - new Date(latest.createdAt).getTime()) / 86_400_000;
+  const approvedCount = STAGES.filter(st =>
+    mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED'
+  ).length;
+  const pct = approvedCount / STAGES.length;
+  const stagesStuck = STAGES.filter(st => {
+    const stageSubs = mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version);
+    return stageSubs.length >= 3 && stageSubs[0]?.status === 'REVISION_REQUIRED';
+  }).length;
+  if (daysSince > 30 && pct < 0.5) return 'CRITICAL';
+  if (stagesStuck > 0) return 'CRITICAL';
+  if (daysSince > 14 && pct < 0.8) return 'AT_RISK';
+  return 'HEALTHY';
+}
+
+const stats = (students: any[], supervisors: any[], assigned: number, unassigned: number, active: number, pending: number, atRisk: number) => [
   { label: 'Total Students',     value: students.length,   href: '/admin/students',    accent: '#3b82f6', icon: <StudentIcon /> },
   { label: 'Supervisors',        value: supervisors.length,href: '/admin/supervisors', accent: '#10b981', icon: <SupervisorIcon /> },
   { label: 'Assigned Projects',  value: assigned,          href: '/admin/assignments', accent: '#8b5cf6', icon: <LinkIcon /> },
   { label: 'Unassigned',         value: unassigned,        href: '/admin/assignments', accent: unassigned > 0 ? '#f59e0b' : '#10b981', icon: <WarnIcon /> },
-  { label: 'Active Accounts',    value: active,            href: '/admin/students',    accent: '#06b6d4', icon: <CheckIcon /> },
   { label: 'Pending Reviews',    value: pending,           href: '/admin/audit',       accent: pending > 0 ? '#f59e0b' : '#475569', icon: <ClipIcon /> },
+  { label: 'At-Risk Projects',   value: atRisk,            href: '/admin/projects',    accent: atRisk > 0 ? '#ef4444' : '#10b981', icon: <CheckIcon /> },
 ];
 
 function StudentIcon()   { return <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>; }
@@ -35,6 +55,7 @@ export default function AdminDashboard() {
   const [pendingAdmins, setPendingAdmins] = useState<any[]>([]);
   const [pendingReviews, setPendingReviews] = useState(0);
   const [recentAudit, setRecentAudit]   = useState<any[]>([]);
+  const [allSubs, setAllSubs]           = useState<Submission[]>([]);
 
   useEffect(() => {
     const all = getAllUsers();
@@ -42,6 +63,7 @@ export default function AdminDashboard() {
     setPendingAdmins(getPendingAdmins());
     (async () => {
       const [subs, audit] = await Promise.all([getSubmissions(), getAuditLog()]);
+      setAllSubs(subs);
       setPendingReviews(subs.filter(s => s.status === 'PENDING').length);
       setRecentAudit(audit.slice(0, 8));
     })();
@@ -52,8 +74,12 @@ export default function AdminDashboard() {
   const unassigned  = students.filter(u => !u.supervisorId).length;
   const assigned    = students.filter(u => !!u.supervisorId).length;
   const active      = users.filter(u => u.status === 'ACTIVE' || !u.status).length;
+  const atRisk      = students.filter(s => {
+    const r = computeRiskLevel(s.id, allSubs, (s as any).supervisorId);
+    return r === 'AT_RISK' || r === 'CRITICAL';
+  }).length;
 
-  const statCards = stats(students, supervisors, assigned, unassigned, active, pendingReviews, pendingAdmins.length);
+  const statCards = stats(students, supervisors, assigned, unassigned, active, pendingReviews, atRisk);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

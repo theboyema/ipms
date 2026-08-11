@@ -68,6 +68,23 @@ export interface AuditEntry {
   timestamp: string;
 }
 
+export type MeetingStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+
+export interface Meeting {
+  id: string;
+  supervisorId: string;
+  studentId: string;
+  supervisorName: string;
+  studentName: string;
+  title: string;
+  scheduledAt: string;
+  location: string;
+  agenda: string;
+  status: MeetingStatus;
+  outcome: string;
+  createdAt: string;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toISO(val: any): string {
@@ -396,6 +413,62 @@ export const subscribeUnreadMsgCount = (
     snap => cb(snap.size),
     err => console.error('[store] subscribeUnreadMsgCount:', err),
   );
+
+// ─── Meetings ─────────────────────────────────────────────────────────────────
+
+function meetingDoc(d: any): Meeting {
+  const data = d.data();
+  return {
+    id: d.id,
+    supervisorId:   data.supervisorId   ?? '',
+    studentId:      data.studentId      ?? '',
+    supervisorName: data.supervisorName ?? '',
+    studentName:    data.studentName    ?? '',
+    title:          data.title          ?? '',
+    scheduledAt:    toISO(data.scheduledAt),
+    location:       data.location       ?? '',
+    agenda:         data.agenda         ?? '',
+    status:         data.status         ?? 'SCHEDULED',
+    outcome:        data.outcome        ?? '',
+    createdAt:      toISO(data.createdAt),
+  };
+}
+
+export const addMeeting = async (data: Omit<Meeting, 'id' | 'createdAt'>): Promise<Meeting> => {
+  const ref = await addDoc(collection(db, 'meetings'), { ...data, createdAt: serverTimestamp() });
+  return { id: ref.id, ...data, createdAt: new Date().toISOString() };
+};
+
+export const updateMeeting = async (id: string, data: Partial<Omit<Meeting, 'id'>>): Promise<void> => {
+  await updateDoc(doc(db, 'meetings', id), data);
+};
+
+export const subscribeMeetings = (
+  userId: string,
+  role: 'supervisor' | 'student',
+  cb: (meetings: Meeting[]) => void,
+): (() => void) => {
+  const field = role === 'supervisor' ? 'supervisorId' : 'studentId';
+  return onSnapshot(
+    query(collection(db, 'meetings'), where(field, '==', userId)),
+    snap => cb(
+      snap.docs.map(d => meetingDoc(d))
+        .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    ),
+    err => console.error('[store] subscribeMeetings:', err),
+  );
+};
+
+export const getAllMeetings = async (): Promise<Meeting[]> => {
+  const snap = await getDocs(collection(db, 'meetings'));
+  return snap.docs.map(d => meetingDoc(d))
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+};
+
+export const getAllReviews = async (): Promise<Review[]> => {
+  const snap = await getDocs(collection(db, 'reviews'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data(), reviewedAt: toISO(d.data().reviewedAt) } as Review));
+};
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
