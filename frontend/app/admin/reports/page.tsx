@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../components/auth/auth-context';
 import {
   getSubmissions, getAuditLog, getAllReviews, getAllMeetings,
-  STAGES, STAGE_LABELS, fmtDate,
+  STAGES, STAGE_LABELS,
   type Submission, type Review, type Meeting,
 } from '../../../lib/store';
+import { computeSupervisionQuality } from '../../../lib/analytics';
 
 export default function AdminReportsPage() {
   const { getAllUsers } = useAuth();
@@ -29,7 +30,6 @@ export default function AdminReportsPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Submission metrics
   const totalSubmissions = submissions.length;
   const approved   = submissions.filter(s => s.status === 'APPROVED').length;
   const pending    = submissions.filter(s => s.status === 'PENDING').length;
@@ -37,63 +37,25 @@ export default function AdminReportsPage() {
 
   const completedProjects = students.filter(s => {
     const subs = submissions.filter(x => x.studentId === s.id);
-    return STAGES.every(st => subs.filter(x => x.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED');
+    return STAGES.every(st =>
+      subs.filter(x => x.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED'
+    );
   }).length;
 
   const assignedStudents   = students.filter(s => (s as any).supervisorId).length;
   const unassignedStudents = students.length - assignedStudents;
 
-  // Stage distribution
   const stageDist = STAGES.map(st => ({
     label: STAGE_LABELS[st],
     count: submissions.filter(s => s.stage === st && s.status === 'APPROVED').length,
   }));
   const maxStageCount = Math.max(...stageDist.map(s => s.count), 1);
 
-  // Supervision quality per supervisor
+  // Supervision quality — use shared algorithm
   const supQuality = supervisors.map(sv => {
-    const svSubs     = submissions.filter(s => s.supervisorId === sv.id);
-    const svReviews  = reviews.filter(r => r.supervisorId === sv.id);
-    const svMeetings = meetings.filter(m => m.supervisorId === sv.id && m.status === 'COMPLETED');
-
-    // Average response time: for each review, find the matching submission's createdAt
-    const responseTimes: number[] = [];
-    svReviews.forEach(r => {
-      const sub = svSubs.find(s => s.id === r.submissionId);
-      if (!sub) return;
-      const diffHours = (new Date(r.reviewedAt).getTime() - new Date(sub.createdAt).getTime()) / 3_600_000;
-      if (diffHours > 0) responseTimes.push(diffHours);
-    });
-    const avgResponseHours = responseTimes.length > 0
-      ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-      : null;
-
-    // Review rate = reviews done / submissions received
-    const reviewRate = svSubs.length > 0 ? Math.round((svReviews.length / svSubs.length) * 100) : 0;
-
-    // Quality score 0-100
-    let score = 0;
-    // 40 pts — response time
-    if (avgResponseHours === null) score += 0;
-    else if (avgResponseHours <= 24)  score += 40;
-    else if (avgResponseHours <= 48)  score += 30;
-    else if (avgResponseHours <= 72)  score += 20;
-    else                              score += 10;
-    // 30 pts — review rate
-    score += Math.round(reviewRate * 0.3);
-    // 30 pts — meeting engagement (capped at 5 completed meetings = full points)
-    score += Math.min(svMeetings.length, 5) * 6;
-
-    return {
-      name:             sv.name,
-      students:         students.filter(s => (s as any).supervisorId === sv.id).length,
-      submissions:      svSubs.length,
-      reviews:          svReviews.length,
-      reviewRate,
-      avgResponseHours,
-      completedMeetings: svMeetings.length,
-      score,
-    };
+    const svStudentCount = students.filter(s => (s as any).supervisorId === sv.id).length;
+    const q = computeSupervisionQuality(sv.id, submissions, reviews, meetings, svStudentCount);
+    return { name: sv.name, students: svStudentCount, submissions: submissions.filter(s => s.supervisorId === sv.id).length, ...q };
   }).sort((a, b) => b.score - a.score);
 
   const handleExportCSV = () => {
@@ -123,6 +85,7 @@ export default function AdminReportsPage() {
   };
 
   const scoreColor = (s: number) => s >= 70 ? '#10b981' : s >= 40 ? '#f59e0b' : '#ef4444';
+  const scoreLabel = (s: number) => s >= 70 ? 'Good' : s >= 40 ? 'Fair' : 'Poor';
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -197,45 +160,73 @@ export default function AdminReportsPage() {
             </div>
           </div>
 
-          {/* Supervision Quality */}
+          {/* Supervision Quality Assessment */}
           {supQuality.length > 0 && (
             <div className="card p-6">
-              <div className="mb-5">
+              <div className="mb-1">
                 <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>Supervision Quality Assessment</h2>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-3)', opacity: 0.7 }}>
-                  Score based on response time (40 pts), review rate (30 pts), and meeting engagement (30 pts).
-                </p>
               </div>
-              <div className="space-y-3">
+              <p className="text-xs mb-5" style={{ color: 'var(--text-3)', opacity: 0.7 }}>
+                Score (0–100) = Response time decay on median (40 pts) + Review completion rate (30 pts) + Consistency via CV (15 pts) + Meeting engagement (15 pts).
+              </p>
+              <div className="space-y-4">
                 {supQuality.map(sv => {
                   const color = scoreColor(sv.score);
+                  const bd    = sv.breakdown;
                   return (
                     <div key={sv.name} className="rounded-xl p-4" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div>
                           <p className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{sv.name}</p>
                           <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                            {sv.students} student{sv.students !== 1 ? 's' : ''} · {sv.reviews} review{sv.reviews !== 1 ? 's' : ''} · {sv.completedMeetings} meeting{sv.completedMeetings !== 1 ? 's' : ''}
+                            {sv.students} student{sv.students !== 1 ? 's' : ''} · {sv.submissions} submission{sv.submissions !== 1 ? 's' : ''} · {sv.completedMeetings} meeting{sv.completedMeetings !== 1 ? 's' : ''}
                           </p>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right">
-                            <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Avg Response</div>
-                            <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{fmtHours(sv.avgResponseHours)}</div>
+                        <div className="flex items-center gap-4 shrink-0 flex-wrap">
+                          <div className="text-center">
+                            <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Median Response</div>
+                            <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{fmtHours(sv.medianResponseHours)}</div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-center">
                             <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Review Rate</div>
                             <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{sv.reviewRate}%</div>
                           </div>
-                          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black shrink-0"
-                            style={{ background: `${color}18`, color }}>
-                            {sv.score}
+                          <div className="text-center">
+                            <div className="text-xs font-medium mb-0.5" style={{ color: 'var(--text-3)' }}>Quality</div>
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black"
+                              style={{ background: `${color}18`, color }}>
+                              {sv.score}
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      {/* Score bar */}
                       <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${sv.score}%`, background: color }} />
+                      </div>
+
+                      {/* Breakdown */}
+                      <div className="mt-3 grid grid-cols-4 gap-2">
+                        {[
+                          { label: 'Response',    pts: bd.responseTime,  max: 40 },
+                          { label: 'Review Rate', pts: bd.reviewRate,    max: 30 },
+                          { label: 'Consistency', pts: bd.consistency,   max: 15 },
+                          { label: 'Meetings',    pts: bd.meetings,      max: 15 },
+                        ].map(b => (
+                          <div key={b.label} className="rounded-lg px-2 py-1.5 text-center" style={{ background: 'var(--hover-bg)' }}>
+                            <div className="text-[10px] font-medium" style={{ color: 'var(--text-3)' }}>{b.label}</div>
+                            <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--text-1)' }}>{b.pts}<span style={{ color: 'var(--text-3)', fontWeight: 400 }}>/{b.max}</span></div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-2 text-right">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: `${color}18`, color }}>
+                          {scoreLabel(sv.score)}
+                        </span>
                       </div>
                     </div>
                   );
@@ -256,12 +247,7 @@ export default function AdminReportsPage() {
                     <div className="flex items-center gap-3 text-xs flex-wrap">
                       <span style={{ color: 'var(--text-2)' }}>{sv.students} student{sv.students !== 1 ? 's' : ''}</span>
                       <span style={{ color: 'var(--text-2)' }}>{sv.submissions} submission{sv.submissions !== 1 ? 's' : ''}</span>
-                      {sv.reviews > 0 && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full font-semibold"
-                          style={{ background: 'var(--success-bg)', color: 'var(--success-text)', border: '1px solid var(--success-border)' }}>
-                          {sv.reviews} reviewed
-                        </span>
-                      )}
+                      <span style={{ color: 'var(--text-2)' }}>{sv.completedMeetings} meeting{sv.completedMeetings !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 ))}

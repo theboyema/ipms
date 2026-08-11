@@ -2,27 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../components/auth/auth-context';
-import { getSubmissions, getAuditLog, getAllMeetings, STAGES, fmtDateTime, type Submission, type Meeting } from '../../lib/store';
-
-function computeRiskLevel(studentId: string, subs: Submission[], supervisorId?: string): 'HEALTHY' | 'AT_RISK' | 'CRITICAL' {
-  if (!supervisorId) return 'CRITICAL';
-  const mySubs = subs.filter(s => s.studentId === studentId);
-  if (mySubs.length === 0) return 'AT_RISK';
-  const latest = [...mySubs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  const daysSince = (Date.now() - new Date(latest.createdAt).getTime()) / 86_400_000;
-  const approvedCount = STAGES.filter(st =>
-    mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED'
-  ).length;
-  const pct = approvedCount / STAGES.length;
-  const stagesStuck = STAGES.filter(st => {
-    const stageSubs = mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version);
-    return stageSubs.length >= 3 && stageSubs[0]?.status === 'REVISION_REQUIRED';
-  }).length;
-  if (daysSince > 30 && pct < 0.5) return 'CRITICAL';
-  if (stagesStuck > 0) return 'CRITICAL';
-  if (daysSince > 14 && pct < 0.8) return 'AT_RISK';
-  return 'HEALTHY';
-}
+import { getSubmissions, getAuditLog, fmtDateTime, type Submission } from '../../lib/store';
+import { computeRiskScore } from '../../lib/analytics';
 
 const stats = (students: any[], supervisors: any[], assigned: number, unassigned: number, active: number, pending: number, atRisk: number) => [
   { label: 'Total Students',     value: students.length,   href: '/admin/students',    accent: '#3b82f6', icon: <StudentIcon /> },
@@ -75,8 +56,8 @@ export default function AdminDashboard() {
   const assigned    = students.filter(u => !!u.supervisorId).length;
   const active      = users.filter(u => u.status === 'ACTIVE' || !u.status).length;
   const atRisk      = students.filter(s => {
-    const r = computeRiskLevel(s.id, allSubs, (s as any).supervisorId);
-    return r === 'AT_RISK' || r === 'CRITICAL';
+    const { level } = computeRiskScore(s.id, allSubs, (s as any).supervisorId);
+    return level === 'AT_RISK' || level === 'CRITICAL';
   }).length;
 
   const statCards = stats(students, supervisors, assigned, unassigned, active, pendingReviews, atRisk);

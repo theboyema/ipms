@@ -2,73 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../components/auth/auth-context';
 import { getSubmissions, getAllMeetings, STAGES, STAGE_LABELS, fmtDate, type Submission, type Meeting } from '../../../lib/store';
-
-type RiskLevel = 'HEALTHY' | 'AT_RISK' | 'CRITICAL';
-
-function computeRisk(
-  studentId: string,
-  subs: Submission[],
-  meetings: Meeting[],
-  supervisorId: string | undefined,
-): RiskLevel {
-  if (!supervisorId) return 'CRITICAL';
-
-  const mySubs = subs.filter(s => s.studentId === studentId);
-  if (mySubs.length === 0) return 'AT_RISK';
-
-  const latest = [...mySubs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  const daysSince = (Date.now() - new Date(latest.createdAt).getTime()) / 86_400_000;
-
-  // Count stages stuck on revision
-  const stagesStuck = STAGES.filter(st => {
-    const stageSubs = mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version);
-    return stageSubs.length >= 3 && stageSubs[0]?.status === 'REVISION_REQUIRED';
-  }).length;
-
-  const approvedStages = STAGES.filter(st =>
-    mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED'
-  ).length;
-  const pct = approvedStages / STAGES.length;
-
-  if (daysSince > 30 && pct < 0.5) return 'CRITICAL';
-  if (stagesStuck > 0) return 'CRITICAL';
-  if (daysSince > 14 && pct < 0.8) return 'AT_RISK';
-  return 'HEALTHY';
-}
-
-function computeHealthScore(
-  studentId: string,
-  subs: Submission[],
-  meetings: Meeting[],
-): number {
-  const mySubs     = subs.filter(s => s.studentId === studentId);
-  const myMeetings = meetings.filter(m => m.studentId === studentId && m.status === 'COMPLETED');
-
-  const approvedStages = STAGES.filter(st =>
-    mySubs.filter(s => s.stage === st).sort((a, b) => b.version - a.version)[0]?.status === 'APPROVED'
-  ).length;
-
-  // 40 pts — progress
-  const progressScore = (approvedStages / STAGES.length) * 40;
-
-  // 30 pts — recent activity (0 if no submissions, scales with recency up to 30 days)
-  let activityScore = 0;
-  if (mySubs.length > 0) {
-    const latest = [...mySubs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    const daysSince = (Date.now() - new Date(latest.createdAt).getTime()) / 86_400_000;
-    activityScore = Math.max(0, (30 - daysSince) / 30) * 30;
-  }
-
-  // 20 pts — low revision rate (more revisions = lower score)
-  const revisions = mySubs.filter(s => s.status === 'REVISION_REQUIRED').length;
-  const total     = mySubs.length;
-  const revisionScore = total > 0 ? Math.max(0, 1 - revisions / total) * 20 : 0;
-
-  // 10 pts — meeting engagement
-  const meetingScore = myMeetings.length > 0 ? 10 : 0;
-
-  return Math.round(progressScore + activityScore + revisionScore + meetingScore);
-}
+import { computeRiskScore, computeHealthScore, type RiskLevel } from '../../../lib/analytics';
 
 const RISK_STYLE: Record<RiskLevel, React.CSSProperties> = {
   HEALTHY:  { background: 'var(--success-bg)', color: 'var(--success-text)', border: '1px solid var(--success-border)' },
@@ -106,8 +40,8 @@ export default function AdminProjectsPage() {
     const hasPending  = mySubs.some(x => x.status === 'PENDING');
     const hasRevision = mySubs.some(x => x.status === 'REVISION_REQUIRED');
     const supervisor  = supervisors.find(sv => sv.id === supervisorId);
-    const risk        = computeRisk(s.id, submissions, meetings, supervisorId);
-    const health      = computeHealthScore(s.id, submissions, meetings);
+    const { level: risk } = computeRiskScore(s.id, submissions, supervisorId);
+    const health          = computeHealthScore(s.id, submissions, meetings);
     const currentStage = STAGES.find(st => {
       const latest = mySubs.filter(x => x.stage === st).sort((a, b) => b.version - a.version)[0];
       return !latest || latest.status !== 'APPROVED';
