@@ -2,6 +2,7 @@
 import React from 'react';
 import Sidebar from '../../components/ui/Sidebar';
 import Navbar from '../../components/ui/Navbar';
+import FloatingAIButton from '../../components/ui/FloatingAIButton';
 import ProtectedRoute from '../../components/ProtectedRoute';
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
@@ -11,8 +12,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         <Sidebar />
         <div className="flex-1 min-w-0">
           <Navbar />
-          <main className="p-4 md:p-6 pb-24 md:pb-6">{children}</main>
+          <main className="p-4 md:p-6 pb-28 md:pb-6">{children}</main>
         </div>
+        <FloatingAIButton />
       </div>
     </ProtectedRoute>
   );

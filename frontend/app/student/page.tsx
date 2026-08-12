@@ -99,6 +99,24 @@ export default function StudentDashboard() {
         ))}
       </div>
 
+      {/* AI Assistant banner */}
+      <Link href="/student/assistant"
+        className="flex items-center gap-3 sm:gap-4 rounded-2xl px-4 sm:px-5 py-3 sm:py-4 transition-all group"
+        style={{ background: 'linear-gradient(135deg,rgba(37,99,235,0.09),rgba(124,58,237,0.09))', border: '1px solid rgba(37,99,235,0.25)' }}>
+        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-lg sm:text-2xl shrink-0"
+          style={{ background: 'linear-gradient(135deg,#2563eb,#7c3aed)' }}>🤖</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--text-1)' }}>AI Academic Assistant</p>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(37,99,235,0.15)', color: 'var(--info-text)' }}>NEW</span>
+          </div>
+          <p className="text-xs mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>Get instant guidance on stage requirements, revision reasons &amp; chapter content.</p>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: 'var(--info-text)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </Link>
+
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
 
