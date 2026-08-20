@@ -204,9 +204,17 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
+
+  /* Prevent any text from punching through its padding on narrow screens */
+  p, span, h1, h2, h3, h4, h5, h6, a, li, td, th, label, div {
+    overflow-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+  }
 
   /* Remove focus outlines on non-keyboard-navigation elements (buttons, links,
      cards) to stop the browser "blinking cursor / ring" appearing after clicks. */
