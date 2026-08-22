@@ -137,25 +137,27 @@ export default function SupervisorMeetingsPage() {
           { label: 'Completed', value: completed.length, accent: '#10b981' },
           { label: 'Cancelled', value: cancelled.length, accent: '#ef4444' },
         ].map(c => (
-          <div key={c.label} className="card p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold shrink-0"
+          <div key={c.label} className="card p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl font-bold shrink-0"
               style={{ background: `${c.accent}18`, color: c.accent }}>{c.value}</div>
-            <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{c.label}</div>
+            <div className="text-[11px] sm:text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>{c.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-        {(['ALL', 'SCHEDULED', 'COMPLETED', 'CANCELLED'] as Filter[]).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
-            style={filter === f
-              ? { background: 'var(--info-bg)', color: 'var(--info-text)', border: '1px solid var(--info-border)' }
-              : { color: 'var(--text-3)' }}>
-            {f === 'ALL' ? `All (${meetings.length})` : f === 'SCHEDULED' ? `Upcoming (${upcoming.length})` : f === 'COMPLETED' ? `Completed (${completed.length})` : `Cancelled (${cancelled.length})`}
-          </button>
-        ))}
+      {/* Filter — scrollable on mobile */}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 p-1 rounded-xl w-fit min-w-max" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+          {(['ALL', 'SCHEDULED', 'COMPLETED', 'CANCELLED'] as Filter[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+              style={filter === f
+                ? { background: 'var(--info-bg)', color: 'var(--info-text)', border: '1px solid var(--info-border)' }
+                : { color: 'var(--text-3)' }}>
+              {f === 'ALL' ? `All (${meetings.length})` : f === 'SCHEDULED' ? `Upcoming (${upcoming.length})` : f === 'COMPLETED' ? `Completed (${completed.length})` : `Cancelled (${cancelled.length})`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Meeting list */}
@@ -181,16 +183,18 @@ export default function SupervisorMeetingsPage() {
                   className="flex items-center justify-between gap-4 p-4 cursor-pointer"
                   onClick={() => setExpanded(open ? null : m.id)}
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold text-white"
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold text-white"
                       style={{ background: 'linear-gradient(135deg,#2563eb,#7c3aed)' }}>
                       {m.studentName[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{m.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
-                        {m.studentName} · {fmtDateTime(m.scheduledAt)}
-                        {m.location && ` · ${m.location}`}
+                      <p className="text-xs mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>
+                        {m.studentName}
+                      </p>
+                      <p className="text-xs leading-snug" style={{ color: 'var(--text-3)' }}>
+                        {fmtDateTime(m.scheduledAt)}{m.location && ` · ${m.location}`}
                       </p>
                     </div>
                   </div>

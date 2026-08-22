@@ -102,17 +102,19 @@ export default function AdminProjectsPage() {
         </div>
       )}
 
-      {/* Risk filter */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
-        {(['ALL', 'HEALTHY', 'AT_RISK', 'CRITICAL'] as const).map(f => (
-          <button key={f} onClick={() => setRiskFilter(f)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
-            style={riskFilter === f
-              ? { background: 'var(--info-bg)', color: 'var(--info-text)', border: '1px solid var(--info-border)' }
-              : { color: 'var(--text-3)' }}>
-            {f === 'ALL' ? `All (${total})` : f === 'HEALTHY' ? `Healthy (${studentProgress.filter(p=>p.risk==='HEALTHY').length})` : f === 'AT_RISK' ? `At Risk (${atRisk})` : `Critical (${critical})`}
-          </button>
-        ))}
+      {/* Risk filter — scrollable on mobile */}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 p-1 rounded-xl w-fit min-w-max" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}>
+          {(['ALL', 'HEALTHY', 'AT_RISK', 'CRITICAL'] as const).map(f => (
+            <button key={f} onClick={() => setRiskFilter(f)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+              style={riskFilter === f
+                ? { background: 'var(--info-bg)', color: 'var(--info-text)', border: '1px solid var(--info-border)' }
+                : { color: 'var(--text-3)' }}>
+              {f === 'ALL' ? `All (${total})` : f === 'HEALTHY' ? `Healthy (${studentProgress.filter(p=>p.risk==='HEALTHY').length})` : f === 'AT_RISK' ? `At Risk (${atRisk})` : `Critical (${critical})`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
