@@ -64,7 +64,7 @@ export default function BulkUploadPage() {
         const existingIds    = new Set(existing.map(u => u.studentId).filter(Boolean));
         const seenEmails     = new Set<string>();
 
-        const parsed: ParsedRow[] = lines.slice(1).filter(r => r.some(c => c)).map(r => {
+        const parsedRows: ParsedRow[] = lines.slice(1).filter(r => r.some(c => c)).map(r => {
           const name        = r[idx('name')] || '';
           const email       = (r[idx('email')] || '').toLowerCase();
           const studentId   = r[idx('studentid')] || '';
@@ -84,7 +84,7 @@ export default function BulkUploadPage() {
           return { name, email, studentId, indexNumber, department, course, level, phone, password, status: 'ok' as const };
         });
 
-        setRows(parsed);
+        setRows(parsedRows);
         setParsed(true);
       } catch {
         setParseError('Failed to parse CSV. Ensure the file is valid comma-separated.');
@@ -116,55 +116,65 @@ export default function BulkUploadPage() {
   const errCount = rows.filter(r => r.status === 'error' || r.status === 'duplicate').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
+
       <div>
-        <h1 className="text-2xl font-black text-slate-900">Bulk Upload Students</h1>
-        <p className="text-sm text-slate-500 mt-1">Import multiple student accounts from a CSV file. Passwords are auto-generated and students must change them on first login.</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--info-text)' }}>Admin</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-1)' }}>Bulk Upload Students</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>Import multiple student accounts from a CSV file. Passwords are auto-generated and students must change them on first login.</p>
       </div>
 
       {done && (
-        <div className="rounded-2xl border-2 border-green-400 bg-green-50 px-5 py-4">
-          <p className="font-bold text-green-800">Import complete!</p>
-          <p className="text-sm text-green-700 mt-1">{done.success} student{done.success !== 1 ? 's' : ''} created. {done.failed > 0 && `${done.failed} failed.`}</p>
+        <div className="rounded-2xl px-5 py-4"
+          style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)' }}>
+          <p className="font-bold text-sm" style={{ color: 'var(--success-text)' }}>Import complete!</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--success-text)' }}>{done.success} student{done.success !== 1 ? 's' : ''} created.{done.failed > 0 ? ` ${done.failed} failed.` : ''}</p>
         </div>
       )}
 
       {/* CSV format guide */}
       <div className="card p-6 space-y-3">
-        <h2 className="font-black text-slate-900">CSV Format</h2>
-        <p className="text-sm text-slate-500">Your file must have these columns (in any order):</p>
-        <div className="overflow-x-auto rounded-xl border-2 border-slate-900 bg-slate-50">
+        <h2 className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>CSV Format</h2>
+        <p className="text-sm" style={{ color: 'var(--text-3)' }}>Your file must have these columns (in any order):</p>
+        <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
           <table className="w-full text-xs font-mono">
             <thead>
-              <tr className="border-b-2 border-slate-900 bg-slate-200">
+              <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-2)' }}>
                 {['name', 'email', 'studentId', 'indexNumber', 'department', 'course', 'level', 'phone'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left">{h}</th>
+                  <th key={h} className="px-3 py-2 text-left" style={{ color: 'var(--text-2)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr>
                 {['John Doe', 'john@uni.edu', 'STU001', '00100001', 'CS', 'BSc CS', '400', '+233...'].map((v, i) => (
-                  <td key={i} className="px-3 py-2 text-slate-600">{v}</td>
+                  <td key={i} className="px-3 py-2" style={{ color: 'var(--text-3)' }}>{v}</td>
                 ))}
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-slate-400">Passwords are auto-generated. Students will be required to change their password on first login.</p>
+        <p className="text-xs" style={{ color: 'var(--text-3)' }}>Passwords are auto-generated. Students will be required to change their password on first login.</p>
       </div>
 
       {/* Upload area */}
       <div className="card p-6">
-        <label className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-10 cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition">
+        <label className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 cursor-pointer transition-all"
+          style={{ borderColor: 'var(--border-2)' }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-accent)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}>
           <div className="text-3xl">📂</div>
           <div className="text-center">
-            <p className="font-bold text-slate-700">{fileName || 'Click to choose a CSV file'}</p>
-            <p className="text-xs text-slate-400 mt-1">.csv files only</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{fileName || 'Click to choose a CSV file'}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>.csv files only</p>
           </div>
           <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFile} className="hidden" />
         </label>
-        {parseError && <div className="mt-4 rounded-2xl bg-red-50 border-2 border-red-300 px-4 py-3 text-sm text-red-700">{parseError}</div>}
+        {parseError && (
+          <div className="mt-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)' }}>
+            {parseError}
+          </div>
+        )}
       </div>
 
       {/* Preview */}
@@ -172,10 +182,18 @@ export default function BulkUploadPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-3">
-              <span className="rounded-full border-2 border-green-400 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">✓ {okCount} ready</span>
-              {errCount > 0 && <span className="rounded-full border-2 border-red-400 bg-red-50 px-3 py-1 text-xs font-bold text-red-800">✗ {errCount} issues</span>}
+              <span className="rounded-full px-3 py-1 text-xs font-semibold"
+                style={{ background: 'var(--success-bg)', color: 'var(--success-text)', border: '1px solid var(--success-border)' }}>
+                ✓ {okCount} ready
+              </span>
+              {errCount > 0 && (
+                <span className="rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)' }}>
+                  ✗ {errCount} issues
+                </span>
+              )}
             </div>
-            <button onClick={handleImport} disabled={uploading || okCount === 0} className="btn-primary text-sm px-6 py-2.5 disabled:opacity-50">
+            <button onClick={handleImport} disabled={uploading || okCount === 0} className="btn-primary text-sm px-6 py-2.5">
               {uploading ? 'Importing…' : `Import ${okCount} Student${okCount !== 1 ? 's' : ''}`}
             </button>
           </div>
@@ -183,36 +201,43 @@ export default function BulkUploadPage() {
           <div className="card overflow-x-auto">
             <table className="w-full text-xs min-w-[700px]">
               <thead>
-                <tr className="border-b-2 border-slate-900 bg-slate-50 text-left font-bold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Student ID</th>
-                  <th className="px-4 py-3">Dept / Course</th>
-                  <th className="px-4 py-3">Gen. Password</th>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-2)' }}>
+                  {['Status', 'Name', 'Email', 'Student ID', 'Dept / Course', 'Gen. Password'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} className={r.status === 'ok' ? 'bg-white' : 'bg-red-50'}>
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: r.status !== 'ok' ? 'rgba(239,68,68,0.04)' : 'transparent' }}>
                     <td className="px-4 py-2.5">
                       {r.status === 'ok'
-                        ? <span className="rounded-full bg-green-100 text-green-800 border border-green-300 px-2 py-0.5 font-bold">Ready</span>
-                        : <span className="rounded-full bg-red-100 text-red-800 border border-red-300 px-2 py-0.5 font-bold" title={r.error}>{r.status === 'duplicate' ? 'Dup.' : 'Error'}</span>
+                        ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                            style={{ background: 'var(--success-bg)', color: 'var(--success-text)', border: '1px solid var(--success-border)' }}>Ready</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" title={r.error}
+                            style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)' }}>
+                            {r.status === 'duplicate' ? 'Dup.' : 'Error'}
+                          </span>
                       }
                     </td>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{r.name || '—'}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{r.email || '—'}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{r.studentId || '—'}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{[r.department, r.course, r.level ? `L${r.level}` : ''].filter(Boolean).join(' / ') || '—'}</td>
-                    <td className="px-4 py-2.5 font-mono text-slate-600">{r.status === 'ok' ? r.password : <span className="text-red-500 italic">{r.error}</span>}</td>
+                    <td className="px-4 py-2.5 text-sm font-medium" style={{ color: 'var(--text-1)' }}>{r.name || '—'}</td>
+                    <td className="px-4 py-2.5" style={{ color: 'var(--text-3)' }}>{r.email || '—'}</td>
+                    <td className="px-4 py-2.5" style={{ color: 'var(--text-3)' }}>{r.studentId || '—'}</td>
+                    <td className="px-4 py-2.5" style={{ color: 'var(--text-3)' }}>
+                      {[r.department, r.course, r.level ? `L${r.level}` : ''].filter(Boolean).join(' / ') || '—'}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono" style={{ color: r.status === 'ok' ? 'var(--text-2)' : 'var(--danger-text)' }}>
+                      {r.status === 'ok' ? r.password : <em>{r.error}</em>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">Generated passwords are shown above. Share them with students securely — they must be changed on first login.</p>
+          <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+            Generated passwords are shown above. Share them with students securely — they must be changed on first login.
+          </p>
         </div>
       )}
     </div>
