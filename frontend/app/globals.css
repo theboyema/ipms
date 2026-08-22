@@ -209,6 +209,11 @@
 
   *, *::before, *::after { box-sizing: border-box; }
 
+  /* Remove tap highlight flash on mobile and hide blinking caret on non-input elements */
+  * { -webkit-tap-highlight-color: transparent; }
+  body { caret-color: transparent; }
+  input, textarea, [contenteditable] { caret-color: auto; }
+
   /* Prevent any text from punching through its padding on narrow screens */
   p, span, h1, h2, h3, h4, h5, h6, a, li, td, th, label, div {
     overflow-wrap: break-word;
