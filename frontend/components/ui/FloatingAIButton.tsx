@@ -1,9 +1,13 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '../auth/auth-context';
 
 export default function FloatingAIButton() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  if (user?.role !== 'STUDENT') return null;
   if (pathname === '/student/assistant') return null;
 
   return (
