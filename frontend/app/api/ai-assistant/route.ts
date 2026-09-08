@@ -1,8 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const SYSTEM_PROMPT = `You are the IPMS Academic Assistant — a helpful guide embedded inside the Intelligent Project Monitoring System (IPMS) used by postgraduate students working on their dissertations/theses.
 
 Your job is to help students understand exactly what is required at each stage of their submission, why their work may have been sent for revision, and how to progress successfully through the 7-stage submission pipeline.
@@ -128,6 +126,14 @@ Your job is to help students understand exactly what is required at each stage o
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: 'AI assistant is not configured on the server (missing ANTHROPIC_API_KEY).' },
+        { status: 500 },
+      );
+    }
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
     const { messages, studentContext } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
